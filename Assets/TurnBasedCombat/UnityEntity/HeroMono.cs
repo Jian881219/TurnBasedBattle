@@ -118,7 +118,7 @@ namespace King.TurnBasedCombat
                 {
                     _CurrentHero.CurrentLife.Value = _CurrentHero.MaxLife.Value;
                 }
-                if (_CurrentHero.CurrentLife.Value > 0)
+                if (_CurrentHero.CurrentLife.Value == 0)
                 {
                     //血量增加后
                     IsDeath = false;
@@ -128,11 +128,11 @@ namespace King.TurnBasedCombat
                         OnDead();
                     }
                 }
-                //魔力值过低时候触发的调用
+                //生命值过低时候触发的调用
                 if (_CurrentHero.CurrentLife.Value > 0 && _CurrentHero.CurrentLife.Value <= _CurrentHero.CurrentLife.Value * SystemSetting.HeroLowLifePercent)
                 {
-                    ExcuteBuff(Global.BuffActiveState.MagicLow);
-                    ExcuteSkill(Global.BuffActiveState.MagicLow);
+                    ExcuteBuff(Global.BuffActiveState.LifeLow);
+                    ExcuteSkill(Global.BuffActiveState.LifeLow);
                 }
                 //TODO 刷新UI上的数值变化
                 BattleController.Instance.CurrentBattleUI.RefreshUI(this, Global.BuffType.IncreaseLife, old_value, _CurrentHero.CurrentLife);
@@ -452,7 +452,7 @@ namespace King.TurnBasedCombat
                 if (skill.IsCostTurn())
                 {
                     skill.CurrentCostTurn -= turn;
-                    Debug.Log(skill.Name + "冷却剩余回合 : " + skill.CurrentCostTurn);
+                    BattleController.Instance.DebugLog(LogType.INFO,skill.Name + "冷却剩余回合 : " + skill.CurrentCostTurn);
                 }
             }
         }
@@ -469,7 +469,7 @@ namespace King.TurnBasedCombat
                 if (skill.CurrentDelayTurn > 0)
                 {
                     skill.CurrentDelayTurn -= turn;
-                    Debug.Log(skill.Name + "蓄力剩余回合 : " + skill.CurrentDelayTurn);
+                    BattleController.Instance.DebugLog(LogType.INFO,skill.Name + "蓄力剩余回合 : " + skill.CurrentDelayTurn);
                     return skill;
                 }
             }
@@ -810,7 +810,7 @@ namespace King.TurnBasedCombat
                     return;
                 }
             }
-            Debug.LogError("Not found hero:" + Name + " trigger animation:" + SystemSetting.HeroAnimationParameters[animation]);
+            BattleController.Instance.DebugLog(LogType.ERROR,"Not found hero:" + Name + " trigger animation:" + SystemSetting.HeroAnimationParameters[animation]);
         }
 
         public void PlayIntAnimation(HeroAnimation animation, int value)
@@ -824,7 +824,7 @@ namespace King.TurnBasedCombat
                     return;
                 }
             }
-            Debug.LogError("Not found hero:" + Name + " integer animation:" + SystemSetting.HeroAnimationParameters[animation]);
+            BattleController.Instance.DebugLog(LogType.ERROR,"Not found hero:" + Name + " integer animation:" + SystemSetting.HeroAnimationParameters[animation]);
         }
 
         public void PlayFloatAnimation(HeroAnimation animation, float value)
@@ -838,7 +838,7 @@ namespace King.TurnBasedCombat
                     return;
                 }
             }
-            Debug.LogError("Not found hero:" + Name + " float animation:" + SystemSetting.HeroAnimationParameters[animation]);
+            BattleController.Instance.DebugLog(LogType.ERROR,"Not found hero:" + Name + " float animation:" + SystemSetting.HeroAnimationParameters[animation]);
         }
 
         public void PlayBoolAnimation(HeroAnimation animation, bool value)
@@ -852,7 +852,7 @@ namespace King.TurnBasedCombat
                     return;
                 }
             }
-            Debug.LogError("Not found hero:" + Name + " float animation:" + SystemSetting.HeroAnimationParameters[animation]);
+            BattleController.Instance.DebugLog(LogType.ERROR,"Not found hero:" + Name + " float animation:" + SystemSetting.HeroAnimationParameters[animation]);
         }
     }
 }

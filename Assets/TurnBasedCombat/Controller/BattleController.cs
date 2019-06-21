@@ -6,6 +6,12 @@ using UnityEngine.UI;
 
 namespace King.TurnBasedCombat
 {
+    public enum LogType
+    {
+        INFO = 1,
+        WARNING = 2,
+        ERROR = 3,
+    }
     /// <summary>
     /// 回合制战斗控制器（单例模式）
     /// </summary>
@@ -33,6 +39,10 @@ namespace King.TurnBasedCombat
         /// 是否自动战斗
         /// </summary>
         public bool IsAutoBattle;
+        /// <summary>
+        /// 是否是调试模式
+        /// </summary>
+        public bool DebugMode;
 
         #region 战斗系统数值变量定义及初始化系统
         /// <summary>
@@ -83,6 +93,27 @@ namespace King.TurnBasedCombat
         }
 
         /// <summary>
+        /// 系统中输出使用这个接口统一管理
+        /// </summary>
+        public void DebugLog(LogType type,string msg)
+        {
+            if(!DebugMode)
+                return;
+            if(type == LogType.WARNING)
+            {
+                Debug.LogWarning(msg);
+            }
+            else if(type == LogType.ERROR)
+            {
+                Debug.LogError(msg);
+            }
+            else
+            {
+                Debug.Log(msg);
+            }
+        }
+
+        /// <summary>
         /// 初始化系统数据
         /// </summary>
         void Init()
@@ -94,7 +125,7 @@ namespace King.TurnBasedCombat
                 {
                     CurrentBattleUI = this.gameObject.AddComponent<BaseBattleUI>();
                 }
-                Debug.LogError("Not found Battle UI,Use BaseBattleUI instead!");
+                DebugLog(LogType.ERROR,"Not found Battle UI,Use BaseBattleUI instead!");
             }
             _SystemState = Global.CombatSystemType.ExitSystem;
             _PlayerTeam = new List<HeroMono>();
@@ -117,7 +148,7 @@ namespace King.TurnBasedCombat
             //播放一些开场动画之类的，或者需要穿插剧情，就在这里进行判断
             StartCoroutine(WaitForNext(SystemSetting.BattlePerTurnStartGapTime, () =>
             {
-                Debug.Log("InitSystem");
+                DebugLog(LogType.INFO,"InitSystem");
                 //初始化完毕进入下一状态
                 ToActionState();
             }));
@@ -138,10 +169,41 @@ namespace King.TurnBasedCombat
             CurrentBattleUI.SelectHero(_CurTurnHero);
             //接着判断一下当前回合的英雄buff或者debuff有没有起作用的，需要再次处理
             _CurTurnHero.ExcuteBuff(Global.BuffActiveState.BeforeAction);
+            //如果执行完buff操作之后，英雄血量变空，则进入下一个准备开始阶段
+            if(!_CurTurnHero.HasLife())
+            {
+                //这里先让buff执行，之后再让其他逻辑执行，让每次使用技能都有时间差
+                StartCoroutine(WaitForNext(SystemSetting.BattlePerTurnEndGapTime,()=>
+                {
+                    if(_CurTurnHero.IsDead())
+                    {
+                        //TODO 被debuff杀死时候需要重新下一个回合，还有是否有恢复技能未使用
+                        AbortAction(Global.CombatSystemType.AfterAction);
+                    }
+                    else
+                    {
+                        //这里是血量为空，但是又技能可以复活的时候执行
+                        _CurTurnHero.ExcuteBuff(Global.BuffActiveState.IsDead);
+                        _CurTurnHero.ExcuteSkill(Global.BuffActiveState.IsDead);
+                        //这里做个延迟
+                        StartCoroutine(WaitForNext(SystemSetting.BattlePerTurnEndGapTime,()=>
+                        {
+                            //接着判断一下当前回合的英雄有没有回合开始前发动的技能，然后处理一下
+                            if (!_CurTurnHero.ExcuteSkill(Global.BuffActiveState.BeforeAction))
+                            {
+                                DebugLog(LogType.INFO,"BeforeAction");
+                                //如果没有技能执行，则手动进入下一状态
+                                ToActionState();
+                            }
+                        }));
+                    } 
+                }));
+                return;
+            }
             //接着判断一下当前回合的英雄有没有回合开始前发动的技能，然后处理一下
             if (!_CurTurnHero.ExcuteSkill(Global.BuffActiveState.BeforeAction))
             {
-                Debug.Log("BeforeAction");
+                DebugLog(LogType.INFO,"BeforeAction");
                 //如果没有技能执行，则手动进入下一状态
                 ToActionState();
             }
@@ -216,7 +278,7 @@ namespace King.TurnBasedCombat
                 {
                     //关闭英雄高亮
                     CurrentBattleUI.DeselectHero(_CurTurnHero);
-                    Debug.Log("AfterAction");
+                    DebugLog(LogType.INFO,"AfterAction");
                     //切换状态
                     ToActionState();
                 }
@@ -230,11 +292,11 @@ namespace King.TurnBasedCombat
         {
             if (CheckPlayerFailed())
             {
-                Debug.Log("玩家失败");
+                DebugLog(LogType.INFO,"玩家失败");
             }
             else if (CheckEnemyFailed())
             {
-                Debug.Log("玩家胜利");
+                DebugLog(LogType.INFO,"玩家胜利");
             }
             //战斗结束，根据胜利失败显示结算画面
             ToActionState();
@@ -518,6 +580,16 @@ namespace King.TurnBasedCombat
                     _SystemState = Global.CombatSystemType.ExitSystem;
                     break;
             }
+            //表示这个阶段执行完毕可以进行下一阶段了
+            _IsExcuteAction = false;
+        }
+
+        /// <summary>
+        /// 强制结束状态到什么状态
+        /// </summary>
+        public void AbortAction(Global.CombatSystemType state)
+        {
+            _SystemState = state;
             //表示这个阶段执行完毕可以进行下一阶段了
             _IsExcuteAction = false;
         }
